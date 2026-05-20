@@ -1,572 +1,585 @@
-'use client'
-import { useState, useEffect } from 'react'
+"use client";
 
-export default function Home() {
-  const [dark, setDark] = useState(true)
-  const [form, setForm] = useState({ nombre: '', email: '', whatsapp: '' })
-  const [enviado, setEnviado] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [timeLeft, setTimeLeft] = useState({ dias: 0, horas: 0, minutos: 0, segundos: 0 })
+import { useEffect, useMemo, useState } from "react";
 
+const launchDate = new Date("2026-07-01T00:00:00-06:00").getTime();
+
+function useCountdown() {
+  const [now, setNow] = useState(Date.now());
   useEffect(() => {
-    const target = new Date('2026-07-01T00:00:00')
-    const tick = () => {
-      const diff = target.getTime() - Date.now()
-      if (diff <= 0) return
-      setTimeLeft({
-        dias: Math.floor(diff / 86400000),
-        horas: Math.floor((diff % 86400000) / 3600000),
-        minutos: Math.floor((diff % 3600000) / 60000),
-        segundos: Math.floor((diff % 60000) / 1000),
-      })
-    }
-    tick()
-    const t = setInterval(tick, 1000)
-    return () => clearInterval(t)
-  }, [])
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return useMemo(() => {
+    const distance = Math.max(launchDate - now, 0);
+    return {
+      days: Math.floor(distance / (1000 * 60 * 60 * 24)),
+      hours: Math.floor((distance / (1000 * 60 * 60)) % 24),
+      minutes: Math.floor((distance / (1000 * 60)) % 60),
+      seconds: Math.floor((distance / 1000) % 60),
+    };
+  }, [now]);
+}
 
-  async function handleSubmit() {
-    setError('')
-    if (!form.nombre || (!form.email && !form.whatsapp)) {
-      setError('Ingresa tu nombre y al menos un medio de contacto')
-      return
-    }
-    setLoading(true)
-    try {
-      const { createClient } = await import('@/app/lib/supabase-client')
-      const supabase = createClient()
-      await supabase.from('lista_espera').insert({
-        nombre: form.nombre,
-        email: form.email || null,
-        whatsapp: form.whatsapp || null,
-      })
-      setEnviado(true)
-    } catch {
-      setError('Ocurrió un error, intenta de nuevo')
-    }
-    setLoading(false)
-  }
+function useTheme() {
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  useEffect(() => {
+    const saved = localStorage.getItem("centra-theme") as "dark" | "light" | null;
+    if (saved) setTheme(saved);
+  }, []);
+  useEffect(() => {
+    document.documentElement.classList.toggle("light", theme === "light");
+    localStorage.setItem("centra-theme", theme);
+  }, [theme]);
+  return { theme, toggle: () => setTheme((t) => (t === "dark" ? "light" : "dark")) };
+}
 
-  const pad = (n: number) => String(n).padStart(2, '0')
+function Logo({ theme }: { theme: "dark" | "light" }) {
+  return (
+    <a href="/" className="flex items-center">
+      <img
+        src={theme === "light" ? "/logo-light.png" : "/logo-dark.png"}
+        alt="Centra"
+        className="h-16 w-auto object-contain"
+      />
+    </a>
+  );
+}
 
-  // Color tokens
-  const c = {
-    bg:        dark ? '#07101E' : '#EEF2F8',
-    bg2:       dark ? '#0D1B2E' : '#E2E9F3',
-    surface:   dark ? '#112040' : '#FFFFFF',
-    border:    dark ? 'rgba(34,197,94,0.15)' : 'rgba(27,43,75,0.12)',
-    borderSub: dark ? 'rgba(226,234,244,0.07)' : 'rgba(27,43,75,0.08)',
-    text:      dark ? '#E8F0FA' : '#1B2B4B',
-    muted:     dark ? 'rgba(226,234,244,0.45)' : 'rgba(27,43,75,0.5)',
-    green:     dark ? '#22C55E' : '#16A34A',
-    greenBg:   dark ? 'rgba(34,197,94,0.1)' : 'rgba(22,163,74,0.08)',
-    greenBd:   dark ? 'rgba(34,197,94,0.25)' : 'rgba(22,163,74,0.2)',
-    inputBg:   dark ? 'rgba(7,16,30,0.7)' : 'rgba(238,242,248,0.9)',
-    inputBd:   dark ? 'rgba(226,234,244,0.1)' : 'rgba(27,43,75,0.15)',
-    btnTxt:    dark ? '#000' : '#fff',
-    glow:      dark ? 'rgba(34,197,94,0.07)' : 'rgba(22,163,74,0.05)',
-  }
+function ThemeToggle({ theme, toggle }: { theme: "dark" | "light"; toggle: () => void }) {
+  return (
+    <button
+      onClick={toggle}
+      aria-label="Cambiar tema"
+      className="flex h-9 w-9 items-center justify-center rounded-xl border border-[color:var(--c-border)] bg-[color:var(--c-surface)] text-[color:var(--c-text-muted)] transition hover:text-[color:var(--c-text)] hover:border-blue-400/30"
+    >
+      {theme === "dark" ? (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" />
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      ) : (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
+const modules = [
+  { title: "Ventas", text: "Tickets, productos top y rendimiento al instante.", img: "/iconos/Ventas.png" },
+  { title: "Inventario", text: "Existencias, movimientos y mínimos sin caos.", img: "/iconos/Inventario.png" },
+  { title: "Gastos", text: "Egresos y costos para ver la utilidad real.", img: "/iconos/Gastos.png" },
+  { title: "Clientes", text: "Quién compra, qué compra y cuándo regresa.", img: "/iconos/Clientes.png" },
+  { title: "Reportes", text: "Indicadores claros para decidir rápido.", img: "/iconos/Reportes.png" },
+  { title: "Control", text: "Tu operación entera en un solo centro.", img: "/iconos/Control.png" },
+  { title: "Caja", text: "Ingresos, cortes y flujo en tiempo real.", img: "/iconos/Caja.png" },
+  { title: "Alertas", text: "Stock bajo y pendientes antes de que duelan.", img: "/iconos/Alertas.png" },
+  { title: "Configuración", text: "Centra adaptado a cómo opera tu negocio.", img: "/iconos/Configuracion.png" },
+];
+
+const videos = [
+  { src: "/video1.mp4", title: "Control diario", text: "Ventas, caja e inventario en una sola vista." },
+  { src: "/video2.mp4", title: "Menos caos", text: "Adiós a libretas, mensajes y hojas sueltas." },
+  { src: "/video3.mp4", title: "Opera como grande", text: "Mentalidad empresarial desde el día uno." },
+];
+
+function Countdown() {
+  const c = useCountdown();
+  const items: [string, number][] = [
+    ["Días", c.days], ["Horas", c.hours], ["Min", c.minutes], ["Seg", c.seconds],
+  ];
+  return (
+    <div className="flex items-center gap-2 sm:gap-4">
+      {items.map(([label, value], i) => (
+        <div key={label} className="flex items-center gap-2 sm:gap-4">
+          <div className="flex flex-col items-center">
+            <span className="text-4xl font-semibold tabular-nums tracking-tight text-[color:var(--c-text)] sm:text-5xl">
+              {String(value).padStart(2, "0")}
+            </span>
+            <span className="mt-1 text-[10px] font-medium uppercase tracking-[0.2em] text-[color:var(--c-text-soft)]">
+              {label}
+            </span>
+          </div>
+          {i < 3 && <span className="text-2xl font-light text-[color:var(--c-divider)] sm:text-3xl">:</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function Page() {
+  const { theme, toggle } = useTheme();
 
   return (
-    <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;900&display=swap');
-        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
-        html { scroll-behavior: smooth; }
-        body {
-          background: ${c.bg};
-          color: ${c.text};
-          font-family: 'Outfit', sans-serif;
-          transition: background 0.35s, color 0.35s;
-          overflow-x: hidden;
-        }
-        /* ── NAV ─────────────────────────────── */
-        nav {
-          position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-          display: flex; align-items: center; justify-content: space-between;
-          padding: 0 clamp(20px, 5vw, 80px);
-          height: 68px;
-          background: ${dark ? 'rgba(7,16,30,0.85)' : 'rgba(238,242,248,0.9)'};
-          backdrop-filter: blur(16px);
-          border-bottom: 1px solid ${c.borderSub};
-        }
-        .nav-logo { display:flex; align-items:center; gap:12px; text-decoration:none; }
-        .nav-logo img { width:44px; height:44px; border-radius:10px; }
-        .nav-logo-name {
-          font-size:20px; font-weight:900; letter-spacing:-0.03em;
-          color:${c.text};
-        }
-        .nav-logo-name span { color:${c.green}; }
-        .nav-right { display:flex; align-items:center; gap:12px; }
-        .toggle {
-          background: ${c.surface}; border: 1px solid ${c.borderSub};
-          border-radius:100px; padding:7px 14px; font-size:13px;
-          font-family:'Outfit',sans-serif; color:${c.muted}; cursor:pointer;
-          transition:all 0.2s;
-        }
-        .toggle:hover { color:${c.text}; }
-        .cta-nav {
-          background:${c.green}; color:${c.btnTxt};
-          border:none; border-radius:8px; padding:9px 18px;
-          font-size:14px; font-weight:700; font-family:'Outfit',sans-serif;
-          cursor:pointer; transition:all 0.2s;
-        }
-        .cta-nav:hover { opacity:0.85; }
-
-        /* ── LAYOUT ──────────────────────────── */
-        section { width:100%; padding: 0 clamp(20px, 5vw, 80px); }
-        .inner { max-width:1100px; margin:0 auto; }
-
-        /* ── HERO ────────────────────────────── */
-        #hero {
-          padding-top: 68px;
-          min-height: 100vh;
-          display:flex; align-items:center;
-          background: radial-gradient(ellipse 80% 60% at 50% 0%, ${c.glow} 0%, transparent 70%);
-        }
-        .hero-inner {
-          display:grid; grid-template-columns:1fr 1fr; gap:60px;
-          align-items:center; padding:80px 0;
-        }
-        .hero-badge {
-          display:inline-flex; align-items:center; gap:8px;
-          background:${c.greenBg}; border:1px solid ${c.greenBd};
-          border-radius:100px; padding:7px 16px;
-          font-size:12px; font-weight:700; color:${c.green};
-          letter-spacing:0.1em; text-transform:uppercase; margin-bottom:20px;
-        }
-        .badge-dot {
-          width:6px; height:6px; background:${c.green};
-          border-radius:50%; animation:pulse 2s infinite;
-        }
-        @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.3;transform:scale(0.7)} }
-        h1 {
-          font-size:clamp(38px,4.5vw,62px); font-weight:900;
-          line-height:1.0; letter-spacing:-0.04em; color:${c.text};
-          margin-bottom:20px;
-        }
-        h1 em { color:${c.green}; font-style:normal; }
-        .hero-sub {
-          font-size:clamp(15px,1.5vw,18px); font-weight:300;
-          color:${c.muted}; line-height:1.7; margin-bottom:32px;
-          max-width:480px;
-        }
-        .btn-row { display:flex; gap:12px; flex-wrap:wrap; }
-        .btn-primary {
-          background:${c.green}; color:${c.btnTxt}; border:none;
-          border-radius:10px; padding:14px 24px;
-          font-size:15px; font-weight:700; font-family:'Outfit',sans-serif;
-          cursor:pointer; transition:all 0.2s; letter-spacing:-0.01em;
-        }
-        .btn-primary:hover { opacity:0.85; transform:translateY(-1px); }
-        .btn-secondary {
-          background:transparent; color:${c.text};
-          border:1px solid ${c.borderSub};
-          border-radius:10px; padding:14px 24px;
-          font-size:15px; font-weight:500; font-family:'Outfit',sans-serif;
-          cursor:pointer; transition:all 0.2s;
-        }
-        .btn-secondary:hover { border-color:${c.green}; color:${c.green}; }
-
-        /* Hero visual */
-        .hero-visual {
-          display:flex; flex-direction:column; gap:12px; position:relative;
-        }
-        .hero-card {
-          background:${c.surface}; border:1px solid ${c.borderSub};
-          border-radius:16px; padding:18px 20px;
-        }
-        .hero-card-label {
-          font-size:11px; font-weight:700; text-transform:uppercase;
-          letter-spacing:0.1em; color:${c.muted}; margin-bottom:8px;
-        }
-        .hero-card-value {
-          font-size:28px; font-weight:900; letter-spacing:-0.03em; color:${c.text};
-        }
-        .hero-card-value span { color:${c.green}; }
-        .hero-card-sub { font-size:13px; color:${c.muted}; margin-top:4px; }
-        .hero-stats { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-        .stat-mini {
-          background:${c.bg2}; border:1px solid ${c.borderSub};
-          border-radius:12px; padding:14px 16px;
-        }
-        .stat-mini-val { font-size:22px; font-weight:900; color:${c.text}; letter-spacing:-0.02em; }
-        .stat-mini-val span { color:${c.green}; }
-        .stat-mini-lbl { font-size:12px; color:${c.muted}; margin-top:2px; }
-
-        /* ── VIDEOS ──────────────────────────── */
-        #videos { padding-top:80px; padding-bottom:80px; }
-        .videos-title { text-align:center; margin-bottom:10px; }
-        .section-label {
-          font-size:12px; font-weight:700; text-transform:uppercase;
-          letter-spacing:0.15em; color:${c.green}; margin-bottom:12px;
-        }
-        h2 {
-          font-size:clamp(28px,3vw,42px); font-weight:900;
-          letter-spacing:-0.03em; color:${c.text}; margin-bottom:12px;
-        }
-        .section-sub {
-          font-size:16px; font-weight:300; color:${c.muted};
-          line-height:1.7; max-width:520px; margin:0 auto 48px;
-        }
-        .video-grid {
-          display:grid; grid-template-columns:repeat(3,1fr); gap:14px;
-        }
-        .video-slot {
-          aspect-ratio:9/16; border-radius:18px; overflow:hidden;
-          background:${c.surface}; border:1px solid ${c.borderSub};
-          position:relative;
-        }
-        .video-slot video { width:100%; height:100%; object-fit:cover; display:block; }
-        .video-overlay {
-          position:absolute; inset:0; display:flex; align-items:flex-end; padding:16px;
-          background:linear-gradient(to top, ${dark?'rgba(7,16,30,0.7)':'rgba(27,43,75,0.4)'} 0%, transparent 60%);
-        }
-        .video-tag {
-          background:${c.greenBg}; border:1px solid ${c.greenBd};
-          border-radius:100px; padding:5px 12px; font-size:12px;
-          font-weight:700; color:${c.green};
-        }
-
-        /* ── EMPATÍA ─────────────────────────── */
-        #empatia { padding-top:80px; padding-bottom:80px; background:${c.bg2}; }
-        .empatia-grid { display:grid; grid-template-columns:1fr 1fr; gap:60px; align-items:center; }
-        .empatia-quote {
-          font-size:clamp(24px,3vw,38px); font-weight:900;
-          letter-spacing:-0.03em; line-height:1.1; color:${c.text};
-          margin-bottom:20px;
-        }
-        .empatia-quote em { color:${c.green}; font-style:normal; }
-        .empatia-body { font-size:16px; font-weight:300; color:${c.muted}; line-height:1.8; }
-        .negocios-list {
-          display:flex; flex-wrap:wrap; gap:8px;
-        }
-        .negocio-chip {
-          background:${c.surface}; border:1px solid ${c.borderSub};
-          border-radius:100px; padding:8px 16px; font-size:13px;
-          font-weight:500; color:${c.text};
-        }
-
-        /* ── SERVICIOS ───────────────────────── */
-        #servicios { padding-top:80px; padding-bottom:80px; }
-        .servicios-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
-        .servicio-card {
-          background:${c.surface}; border:1px solid ${c.borderSub};
-          border-radius:18px; padding:28px 24px;
-          transition:border-color 0.2s;
-        }
-        .servicio-card:hover { border-color:${c.green}; }
-        .servicio-icon { font-size:32px; margin-bottom:16px; }
-        .servicio-title {
-          font-size:17px; font-weight:700; color:${c.text};
-          margin-bottom:8px; letter-spacing:-0.02em;
-        }
-        .servicio-desc { font-size:14px; font-weight:300; color:${c.muted}; line-height:1.6; }
-
-        /* ── COUNTDOWN ───────────────────────── */
-        #cuenta { padding-top:80px; padding-bottom:80px; background:${c.bg2}; text-align:center; }
-        .countdown { display:flex; align-items:flex-start; gap:10px; justify-content:center; margin:40px 0; }
-        .cnt-item { display:flex; flex-direction:column; align-items:center; gap:6px; }
-        .cnt-num {
-          font-size:clamp(36px,5vw,56px); font-weight:900; color:${c.text};
-          letter-spacing:-0.04em; line-height:1;
-          background:${c.surface}; border:1px solid ${c.borderSub};
-          border-radius:14px; padding:16px 12px; min-width:80px; text-align:center;
-        }
-        .cnt-lbl {
-          font-size:11px; font-weight:700; letter-spacing:0.1em;
-          text-transform:uppercase; color:${c.muted};
-        }
-        .cnt-sep {
-          font-size:42px; font-weight:900; color:${c.green};
-          opacity:0.4; padding-top:16px;
-        }
-
-        /* ── FORM ────────────────────────────── */
-        #lista { padding-top:80px; padding-bottom:80px; }
-        .form-wrap { max-width:560px; margin:0 auto; }
-        .form-card {
-          background:${c.surface}; border:1px solid ${c.border};
-          border-radius:24px; padding:36px;
-        }
-        .form-input {
-          background:${c.inputBg}; border:1px solid ${c.inputBd};
-          border-radius:10px; padding:13px 16px;
-          color:${c.text}; font-family:'Outfit',sans-serif;
-          font-size:15px; width:100%; outline:none;
-          transition:border-color 0.2s; margin-bottom:10px; display:block;
-        }
-        .form-input:focus { border-color:${dark?'rgba(34,197,94,0.4)':'rgba(22,163,74,0.4)'}; }
-        .form-input::placeholder { color:${c.muted}; }
-        .form-btn {
-          width:100%; background:${c.green}; color:${c.btnTxt};
-          border:none; border-radius:10px; padding:15px;
-          font-size:16px; font-weight:900; font-family:'Outfit',sans-serif;
-          cursor:pointer; transition:all 0.2s; letter-spacing:-0.01em; margin-top:4px;
-        }
-        .form-btn:hover { opacity:0.85; transform:translateY(-1px); }
-        .form-btn:disabled { opacity:0.5; cursor:default; transform:none; }
-        .form-err {
-          background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25);
-          border-radius:8px; padding:10px 14px; font-size:13px; color:#ef4444; margin-bottom:10px;
-        }
-        .success-box { text-align:center; padding:20px 0; }
-        .success-logo { width:72px; height:72px; border-radius:16px; margin:0 auto 16px; display:block; }
-        .success-title { font-size:22px; font-weight:900; color:${c.green}; margin-bottom:8px; letter-spacing:-0.02em; }
-        .success-sub { font-size:14px; font-weight:300; color:${c.muted}; line-height:1.6; }
-
-        /* ── FOOTER ──────────────────────────── */
-        footer {
-          border-top:1px solid ${c.borderSub};
-          padding:28px clamp(20px,5vw,80px);
-          display:flex; align-items:center; justify-content:space-between;
-          flex-wrap:wrap; gap:12px;
-        }
-        .footer-logo { display:flex; align-items:center; gap:10px; }
-        .footer-logo img { width:30px; height:30px; border-radius:7px; }
-        .footer-logo span { font-size:15px; font-weight:900; color:${c.text}; letter-spacing:-0.02em; }
-        .footer-txt { font-size:13px; font-weight:300; color:${c.muted}; }
-        .footer-txt a { color:${c.green}; text-decoration:none; }
-
-        /* ── RESPONSIVE ──────────────────────── */
-        @media (max-width:768px) {
-          .hero-inner { grid-template-columns:1fr; gap:40px; padding:60px 0; }
-          .hero-visual { display:none; }
-          .empatia-grid { grid-template-columns:1fr; gap:32px; }
-          .servicios-grid { grid-template-columns:1fr 1fr; }
-          .video-grid { grid-template-columns:repeat(3,1fr); gap:8px; }
-          .btn-row { flex-direction:column; }
-          .btn-primary, .btn-secondary { width:100%; text-align:center; }
-          footer { flex-direction:column; align-items:flex-start; }
-          .cnt-num { font-size:28px; min-width:60px; padding:12px 8px; }
-        }
-        @media (max-width:480px) {
-          .servicios-grid { grid-template-columns:1fr; }
-          .video-grid { gap:6px; }
-        }
-      `}</style>
-
-      {/* NAV */}
-      <nav>
-        <a className="nav-logo" href="#">
-          <img src="/CENTRA.png" alt="Centra" />
-          <span className="nav-logo-name">CENTRA</span>
-        </a>
-        <div className="nav-right">
-          <button className="toggle" onClick={() => setDark(!dark)}>
-            {dark ? '☀ Claro' : '☾ Oscuro'}
-          </button>
-          <button className="cta-nav" onClick={() => document.getElementById('lista')?.scrollIntoView({behavior:'smooth'})}>
-            Quiero saber más
-          </button>
+    <main className="min-h-screen bg-[color:var(--c-bg)] text-[color:var(--c-text)] antialiased selection:bg-blue-500/30 transition-colors duration-300">
+      {/* ============ HERO ============ */}
+      <section className="relative overflow-hidden">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute left-1/2 top-0 h-[800px] w-[1200px] -translate-x-1/2 -translate-y-1/3 rounded-full bg-blue-600/[0.18] blur-[140px]" />
+          <div className="absolute right-0 top-1/3 h-[500px] w-[500px] rounded-full bg-sky-500/[0.08] blur-[120px]" />
+          <div
+            className="absolute inset-0 opacity-[0.04]"
+            style={{
+              backgroundImage:
+                "linear-gradient(var(--c-grid) 1px, transparent 1px), linear-gradient(90deg, var(--c-grid) 1px, transparent 1px)",
+              backgroundSize: "80px 80px",
+              maskImage: "radial-gradient(ellipse at center, black 30%, transparent 75%)",
+            }}
+          />
         </div>
-      </nav>
 
-      {/* HERO */}
-      <section id="hero">
-        <div className="inner hero-inner">
-          <div>
-            <div className="hero-badge">
-              <div className="badge-dot" />
-              Próximamente · Verano 2026
-            </div>
-            <h1>
-              ¿Sientes que tu negocio <em>te controla</em> a ti?
-            </h1>
-            <p className="hero-sub">
-              Centra te ayuda a tener más control de tus ventas, inventario y caja — sin complicaciones, sin gastar como una gran empresa.
-            </p>
-            <div className="btn-row">
-              <button className="btn-primary" onClick={() => document.getElementById('lista')?.scrollIntoView({behavior:'smooth'})}>
-                Quiero ordenar mi negocio →
-              </button>
-              <button className="btn-secondary" onClick={() => document.getElementById('servicios')?.scrollIntoView({behavior:'smooth'})}>
-                Ver cómo funciona
-              </button>
-            </div>
-          </div>
-          <div className="hero-visual">
-            <div className="hero-card">
-              <div className="hero-card-label">Ventas de hoy</div>
-              <div className="hero-card-value"><span>$12,840</span></div>
-              <div className="hero-card-sub">↑ 18% vs ayer · 47 tickets</div>
-            </div>
-            <div className="hero-stats">
-              <div className="stat-mini">
-                <div className="stat-mini-val"><span>98</span></div>
-                <div className="stat-mini-lbl">Productos en stock</div>
-              </div>
-              <div className="stat-mini">
-                <div className="stat-mini-val"><span>$0</span></div>
-                <div className="stat-mini-lbl">Diferencia en caja</div>
-              </div>
-              <div className="stat-mini">
-                <div className="stat-mini-val"><span>32%</span></div>
-                <div className="stat-mini-lbl">Margen promedio</div>
-              </div>
-              <div className="stat-mini">
-                <div className="stat-mini-val"><span>3</span></div>
-                <div className="stat-mini-lbl">Alertas activas</div>
-              </div>
+        <header className="sticky top-4 z-50 mx-auto mt-6 max-w-6xl px-4 sm:px-6">
+          <div className="flex items-center justify-between rounded-2xl border border-[color:var(--c-border)] bg-[color:var(--c-header)] px-4 py-2.5 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.25)] sm:px-5 sm:py-3">
+            <Logo theme={theme} />
+            <nav className="hidden items-center gap-8 text-sm text-[color:var(--c-text-muted)] md:flex">
+              <a href="#modulos" className="transition hover:text-[color:var(--c-text)]">Módulos</a>
+              <a href="#experiencia" className="transition hover:text-[color:var(--c-text)]">Experiencia</a>
+              <a href="#comparativa" className="transition hover:text-[color:var(--c-text)]">Por qué Centra</a>
+              <a href="#acceso" className="transition hover:text-[color:var(--c-text)]">Acceso</a>
+            </nav>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <ThemeToggle theme={theme} toggle={toggle} />
+              <a
+                href="#acceso"
+                className="group relative inline-flex items-center gap-2 rounded-xl bg-[color:var(--c-cta-bg)] px-3 py-2 text-xs font-medium text-[color:var(--c-cta-text)] transition hover:opacity-90 sm:px-4 sm:text-sm"
+              >
+                <span className="hidden sm:inline">Acceso anticipado</span>
+                <span className="sm:hidden">Acceso</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="transition group-hover:translate-x-0.5">
+                  <path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </a>
             </div>
           </div>
-        </div>
-      </section>
+        </header>
 
-      {/* VIDEOS */}
-      <section id="videos">
-        <div className="inner">
-          <div className="videos-title">
-            <div className="section-label">Centra en acción</div>
-            <h2>Míralo tú mismo</h2>
-            <p className="section-sub">Simple como debe ser. Sin cursos, sin manuales.</p>
-          </div>
-          <div className="video-grid">
-            {[
-              { file: 'video1.mp4', tag: 'El problema' },
-              { file: 'video2.mp4', tag: 'La solución' },
-              { file: 'video3.mp4', tag: 'Tu negocio' },
-            ].map((v, i) => (
-              <div key={i} className="video-slot">
-                <video autoPlay muted loop playsInline preload="auto">
-                  <source src={`/${v.file}`} type="video/mp4" />
-                </video>
-                <div className="video-overlay">
-                  <span className="video-tag">{v.tag}</span>
+        <div className="relative mx-auto max-w-7xl px-4 pt-16 pb-24 sm:px-6 lg:px-8 lg:pt-28 lg:pb-40">
+          <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
+            <div>
+              <div className="mb-8 inline-flex items-center gap-2.5 rounded-full border border-[color:var(--c-border)] bg-[color:var(--c-surface)] px-3.5 py-1.5 text-xs font-medium text-[color:var(--c-text-muted)] backdrop-blur-sm">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-blue-400" />
+                </span>
+                Acceso anticipado · Próximamente
+              </div>
+
+              <h1 className="text-[2.25rem] font-semibold leading-[1.05] tracking-[-0.04em] sm:text-5xl lg:text-[4.5rem] lg:leading-[1.02]">
+                Haz que tu micronegocio
+                <br />
+                <span className="bg-gradient-to-r from-blue-400 via-sky-300 to-blue-500 bg-clip-text text-transparent">
+                  se sienta como una gran empresa.
+                </span>
+              </h1>
+
+              <p className="mt-6 max-w-xl text-base leading-relaxed text-[color:var(--c-text-muted)] sm:mt-8 sm:text-lg">
+                Centra es el centro de control para micronegocios. Ventas, caja, inventario y reportes en una sola experiencia clara, rápida y elegante.
+              </p>
+
+              <div className="mt-8 flex flex-col gap-3 sm:mt-10 sm:flex-row sm:items-center">
+                <a
+                  href="#acceso"
+                  className="group inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3.5 text-sm font-semibold text-white shadow-[0_0_0_1px_rgba(96,165,250,0.3),0_8px_32px_-8px_rgba(37,99,235,0.7)] transition hover:bg-blue-500"
+                >
+                  Quiero acceso anticipado
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="transition group-hover:translate-x-0.5">
+                    <path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </a>
+                <a
+                  href="#experiencia"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-[color:var(--c-border)] bg-[color:var(--c-surface)] px-6 py-3.5 text-sm font-medium text-[color:var(--c-text-muted)] transition hover:text-[color:var(--c-text)]"
+                >
+                  Ver experiencia
+                </a>
+              </div>
+
+              <div className="mt-12 border-t border-[color:var(--c-border)] pt-8 sm:mt-14">
+                <p className="mb-5 text-[11px] font-medium uppercase tracking-[0.22em] text-[color:var(--c-text-soft)]">
+                  Lanzamiento en
+                </p>
+                <Countdown />
+              </div>
+            </div>
+
+            <div className="relative lg:pl-8">
+              <div className="absolute -inset-12 bg-blue-600/[0.12] blur-[80px]" />
+              <div className="absolute -inset-6 bg-gradient-to-br from-blue-500/[0.08] via-transparent to-sky-400/[0.05] blur-2xl" />
+
+              <div className="absolute -left-4 top-12 z-20 hidden rounded-2xl border border-[color:var(--c-border)] bg-[color:var(--c-card)] p-3.5 shadow-2xl backdrop-blur-xl sm:-left-6 sm:block">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                      <path d="M3 17l6-6 4 4 8-8" stroke="#34D399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M14 7h7v7" stroke="#34D399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-[color:var(--c-text-soft)]">Ventas hoy</p>
+                    <p className="text-sm font-semibold tabular-nums text-[color:var(--c-text)]">+24.8%</p>
+                  </div>
                 </div>
               </div>
-            ))}
+
+              <div className="absolute -right-4 bottom-16 z-20 hidden rounded-2xl border border-[color:var(--c-border)] bg-[color:var(--c-card)] p-3.5 shadow-2xl backdrop-blur-xl sm:block">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10">
+                    <span className="h-2 w-2 animate-pulse rounded-full bg-blue-400" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-[color:var(--c-text-soft)]">Caja en vivo</p>
+                    <p className="text-sm font-semibold tabular-nums text-[color:var(--c-text)]">$15,230</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="relative rounded-[1.75rem] border border-[color:var(--c-border)] bg-[color:var(--c-card-grad)] p-2 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.5)] backdrop-blur-xl">
+                <div className="rounded-[1.4rem] border border-[color:var(--c-border-soft)] bg-[color:var(--c-card-inner)] p-4 sm:p-6">
+                  <div className="mb-6 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--c-dot)]" />
+                      <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--c-dot)]" />
+                      <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--c-dot)]" />
+                    </div>
+                    <div className="flex items-center gap-2 rounded-full border border-[color:var(--c-border-soft)] bg-[color:var(--c-surface)] px-2.5 py-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                      <span className="text-[10px] font-medium text-[color:var(--c-text-muted)]">En control</span>
+                    </div>
+                  </div>
+
+                  <div className="mb-6">
+                    <p className="text-xs text-[color:var(--c-text-soft)]">Buenos días, Andrea</p>
+                    <p className="mt-0.5 text-lg font-semibold tracking-tight text-[color:var(--c-text)]">Hoy · Vista operativa</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {[
+                      ["Ventas", "$24,850", "+12.5%"],
+                      ["Ganancia", "$8,420", "+9.3%"],
+                      ["Órdenes", "128", "+15.7%"],
+                      ["Ticket prom.", "$194", "+3.2%"],
+                    ].map(([label, value, change]) => (
+                      <div
+                        key={label as string}
+                        className="rounded-2xl border border-[color:var(--c-border-soft)] bg-[color:var(--c-tile)] p-4"
+                      >
+                        <p className="text-[10px] uppercase tracking-wider text-[color:var(--c-text-soft)]">{label}</p>
+                        <p className="mt-2 text-xl font-semibold tabular-nums text-[color:var(--c-text)]">{value}</p>
+                        <p className="mt-1 text-[11px] font-medium text-emerald-400">{change}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-3 rounded-2xl border border-[color:var(--c-border-soft)] bg-[color:var(--c-tile)] p-4">
+                    <div className="mb-4 flex items-center justify-between">
+                      <p className="text-xs font-medium text-[color:var(--c-text-muted)]">Ventas últimos 7 días</p>
+                      <span className="text-[10px] text-[color:var(--c-text-soft)]">7d</span>
+                    </div>
+                    <div className="flex h-28 items-end gap-2">
+                      {[38, 58, 45, 74, 62, 84, 96].map((h, i) => (
+                        <div key={i} className="flex flex-1 flex-col items-center gap-1.5">
+                          <div
+                            className="w-full rounded-md bg-gradient-to-t from-blue-600/60 to-sky-400 shadow-[0_0_12px_rgba(96,165,250,0.4)]"
+                            style={{ height: `${h}%` }}
+                          />
+                          <span className="text-[9px] text-[color:var(--c-text-soft)]">
+                            {["L", "M", "M", "J", "V", "S", "D"][i]}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-20 flex flex-wrap items-center justify-center gap-x-8 gap-y-4 text-[10px] uppercase tracking-[0.2em] text-[color:var(--c-text-soft)] sm:mt-24 sm:gap-x-12 sm:text-xs">
+            <span>Diseñado en México</span>
+            <span className="h-1 w-1 rounded-full bg-[color:var(--c-divider)]" />
+            <span>Para micronegocios reales</span>
+            <span className="h-1 w-1 rounded-full bg-[color:var(--c-divider)]" />
+            <span>Listo para escalar</span>
           </div>
         </div>
       </section>
 
-      {/* EMPATÍA */}
-      <section id="empatia">
-        <div className="inner">
-          <div className="empatia-grid">
-            <div>
-              <div className="section-label">Te entendemos</div>
-              <div className="empatia-quote">
-                Sabemos lo difícil que es<br />llevar un <em>negocio</em>
+      {/* ============ MÓDULOS ============ */}
+      <section id="modulos" className="relative mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8 lg:py-32">
+        <div className="mx-auto max-w-2xl text-center">
+          <p className="text-xs font-medium uppercase tracking-[0.28em] text-blue-400">Módulos</p>
+          <h2 className="mt-5 text-3xl font-semibold tracking-[-0.035em] sm:text-5xl">
+            Todo lo que necesita tu negocio.
+            <br />
+            <span className="text-[color:var(--c-text-soft)]">Nada de lo que sobra.</span>
+          </h2>
+          <p className="mt-6 text-base leading-relaxed text-[color:var(--c-text-muted)]">
+            Nueve módulos conectados en una sola experiencia. Sin lenguaje contable. Sin procesos pesados.
+          </p>
+        </div>
+
+        <div className="mt-16 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 lg:mt-20">
+          {modules.map((m) => (
+            <article
+              key={m.title}
+              className="group relative overflow-hidden rounded-2xl border border-[color:var(--c-border)] bg-[color:var(--c-surface)] p-7 transition-all duration-500 hover:border-blue-400/20 hover:bg-blue-500/[0.03]"
+            >
+              <div className="pointer-events-none absolute -inset-px rounded-2xl bg-gradient-to-br from-blue-500/0 to-blue-500/0 opacity-0 transition-opacity duration-500 group-hover:from-blue-500/[0.08] group-hover:to-transparent group-hover:opacity-100" />
+
+              <div className="relative">
+                <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-[color:var(--c-border)] bg-[color:var(--c-tile)] transition group-hover:border-blue-400/30 group-hover:bg-blue-500/[0.06] group-hover:shadow-[0_0_24px_rgba(37,99,235,0.25)]">
+                  <img src={m.img} alt={m.title} className="h-9 w-9 object-contain" />
+                </div>
+                <h3 className="mt-6 text-base font-semibold tracking-tight text-[color:var(--c-text)]">{m.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-[color:var(--c-text-muted)]">{m.text}</p>
+
+                <span className="mt-5 inline-flex items-center gap-1 text-[11px] font-medium text-[color:var(--c-text-soft)] transition group-hover:text-blue-400">
+                  Disponible al lanzamiento
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="transition group-hover:translate-x-0.5">
+                    <path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      {/* ============ VIDEOS ============ */}
+      <section id="experiencia" className="relative mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8 lg:py-32">
+        <div className="max-w-2xl">
+          <p className="text-xs font-medium uppercase tracking-[0.28em] text-blue-400">En movimiento</p>
+          <h2 className="mt-5 text-3xl font-semibold tracking-[-0.035em] sm:text-5xl">
+            Mira cómo se siente
+            <br />
+            <span className="text-[color:var(--c-text-soft)]">tener el control.</span>
+          </h2>
+        </div>
+
+        <div className="mt-12 grid gap-4 lg:mt-16 lg:grid-cols-3">
+          {videos.map((v, i) => (
+            <div
+              key={v.src}
+              className="group relative overflow-hidden rounded-2xl border border-[color:var(--c-border)] bg-[color:var(--c-surface)] transition hover:border-blue-400/20"
+            >
+              <div className="relative aspect-[4/5] overflow-hidden bg-[color:var(--c-card-inner)]">
+                <video
+                  className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]"
+                  src={v.src}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  preload="metadata"
+                />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 p-6">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-slate-200 backdrop-blur-md">
+                    <span className="h-1 w-1 rounded-full bg-blue-400" />
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <h3 className="mt-3 text-lg font-semibold tracking-tight text-white">{v.title}</h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-slate-300">{v.text}</p>
+                </div>
               </div>
             </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ============ NO ES ERP ============ */}
+      <section id="comparativa" className="relative mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8 lg:py-32">
+        <div className="relative overflow-hidden rounded-[2rem] border border-[color:var(--c-border)] bg-[color:var(--c-card-grad)] p-8 sm:p-10 lg:p-16">
+          <div className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-blue-600/[0.12] blur-[100px]" />
+          <div className="pointer-events-none absolute -bottom-32 -left-32 h-96 w-96 rounded-full bg-sky-500/[0.08] blur-[100px]" />
+
+          <div className="relative grid gap-12 lg:grid-cols-[1fr_1.1fr] lg:items-center lg:gap-16">
             <div>
-              <p className="empatia-body" style={{marginBottom:28}}>
-                Muchos pequeños negocios trabajan con libretas, notas o Excel y terminan perdiendo tiempo, dinero y control. Centra nace para ayudarte a tener orden, sin gastar como una gran empresa.
+              <p className="text-xs font-medium uppercase tracking-[0.28em] text-blue-400">No es un ERP</p>
+              <h2 className="mt-5 text-3xl font-semibold tracking-[-0.035em] sm:text-5xl">
+                Es el centro de control
+                <br />
+                <span className="bg-gradient-to-r from-blue-400 to-sky-300 bg-clip-text text-transparent">
+                  que tu negocio merece.
+                </span>
+              </h2>
+              <p className="mt-6 max-w-md text-base leading-relaxed text-[color:var(--c-text-muted)]">
+                Los sistemas grandes no fueron hechos para ti. Centra sí. Pensado, diseñado y construido para micronegocios que quieren operar con visión empresarial.
               </p>
-              <div className="negocios-list">
-                {['🛒 Abarrotes','☕ Cafeterías','🍗 Rosticerías','📎 Papelerías','🔧 Ferreterías','✂️ Estéticas','🔩 Talleres','🧁 Panaderías','👕 Ropa','🌮 Taquerías'].map(n => (
-                  <span key={n} className="negocio-chip">{n}</span>
+
+              <div className="mt-10 grid grid-cols-3 gap-4 sm:gap-8">
+                {[["9", "Módulos"], ["1", "Vista"], ["0", "Complicación"]].map(([n, l]) => (
+                  <div key={l}>
+                    <p className="text-3xl font-semibold tabular-nums tracking-tight text-[color:var(--c-text)] sm:text-4xl">{n}</p>
+                    <p className="mt-1 text-xs uppercase tracking-[0.18em] text-[color:var(--c-text-soft)]">{l}</p>
+                  </div>
                 ))}
               </div>
             </div>
-          </div>
-        </div>
-      </section>
 
-      {/* SERVICIOS */}
-      <section id="servicios">
-        <div className="inner">
-          <div style={{textAlign:'center'}}>
-            <div className="section-label">¿Qué hace Centra?</div>
-            <h2>Menos caos, más control</h2>
-            <p className="section-sub">Todo lo que necesitas para ordenar tu negocio, en un solo lugar.</p>
-          </div>
-          <div className="servicios-grid">
-            {[
-              { icon:'🏷️', title:'Control de ventas', desc:'Conoce cuánto vendes realmente. Cada ticket, cada forma de pago, cada día.' },
-              { icon:'📦', title:'Inventario inteligente', desc:'Evita pérdidas y faltantes. Centra te avisa antes de que se te acabe.' },
-              { icon:'💰', title:'Caja y gastos', desc:'Entiende en qué se va tu dinero. Corte exacto al final del día.' },
-              { icon:'🛒', title:'Compras y proveedores', desc:'Registra pedidos y recepciones. Nunca pierdas de vista lo que debes.' },
-              { icon:'📊', title:'Dashboard diario', desc:'Abre Centra cada mañana y sabe en segundos cómo está tu negocio.' },
-              { icon:'📱', title:'Desde tu celular', desc:'Funciona en cualquier celular. Sin instalar nada. Siempre contigo.' },
-            ].map(s => (
-              <div key={s.title} className="servicio-card">
-                <div className="servicio-icon">{s.icon}</div>
-                <div className="servicio-title">{s.title}</div>
-                <div className="servicio-desc">{s.desc}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* COUNTDOWN */}
-      <section id="cuenta">
-        <div className="inner">
-          <div className="section-label">El lanzamiento se acerca</div>
-          <h2>Llega el 1 de julio</h2>
-          <p className="section-sub">Ordena tu negocio desde este verano.</p>
-          <div className="countdown">
-            {[
-              {num: pad(timeLeft.dias), lbl:'Días'},
-              {sep:':'},
-              {num: pad(timeLeft.horas), lbl:'Horas'},
-              {sep:':'},
-              {num: pad(timeLeft.minutos), lbl:'Minutos'},
-              {sep:':'},
-              {num: pad(timeLeft.segundos), lbl:'Segundos'},
-            ].map((item:any, i) => item.sep
-              ? <div key={i} className="cnt-sep">{item.sep}</div>
-              : <div key={i} className="cnt-item">
-                  <div className="cnt-num">{item.num}</div>
-                  <div className="cnt-lbl">{item.lbl}</div>
+            <div className="space-y-3">
+              {[
+                {
+                  side: "antes",
+                  title: "Antes",
+                  items: [
+                    "Libretas, Excel y mensajes sueltos",
+                    "No sabes con claridad cuánto ganas",
+                    "Inventario y caja sin visión completa",
+                    "Decisiones tarde y con datos incompletos",
+                  ],
+                },
+                {
+                  side: "ahora",
+                  title: "Con Centra",
+                  items: [
+                    "Todo conectado en un solo lugar",
+                    "Indicadores claros, decisiones rápidas",
+                    "Alertas, caja, ventas e inventario en vivo",
+                    "Una experiencia que te hace operar como grande",
+                  ],
+                },
+              ].map((block) => (
+                <div
+                  key={block.title}
+                  className={
+                    block.side === "ahora"
+                      ? "rounded-2xl border border-blue-400/20 bg-blue-500/[0.04] p-6 shadow-[0_0_40px_-10px_rgba(37,99,235,0.3)] backdrop-blur-sm"
+                      : "rounded-2xl border border-[color:var(--c-border)] bg-[color:var(--c-surface)] p-6 backdrop-blur-sm"
+                  }
+                >
+                  <div className="mb-4 flex items-center gap-2">
+                    <span
+                      className={
+                        block.side === "ahora"
+                          ? "h-1.5 w-1.5 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)]"
+                          : "h-1.5 w-1.5 rounded-full bg-[color:var(--c-text-soft)]"
+                      }
+                    />
+                    <p
+                      className={
+                        block.side === "ahora"
+                          ? "text-sm font-semibold text-[color:var(--c-text)]"
+                          : "text-sm font-medium text-[color:var(--c-text-soft)]"
+                      }
+                    >
+                      {block.title}
+                    </p>
+                  </div>
+                  <ul className="space-y-2.5">
+                    {block.items.map((it) => (
+                      <li
+                        key={it}
+                        className={
+                          block.side === "ahora"
+                            ? "flex items-start gap-2.5 text-sm text-[color:var(--c-text)]"
+                            : "flex items-start gap-2.5 text-sm text-[color:var(--c-text-soft)]"
+                        }
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="mt-0.5 shrink-0">
+                          {block.side === "ahora" ? (
+                            <path d="M4 12l5 5L20 6" stroke="#60A5FA" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                          ) : (
+                            <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                          )}
+                        </svg>
+                        <span>{it}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-            )}
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* FORM */}
-      <section id="lista">
-        <div className="inner">
-          <div className="form-wrap">
-            <div style={{textAlign:'center', marginBottom:28}}>
-              <div className="section-label">Lista de espera</div>
-              <h2>Sé de los primeros</h2>
-              <p className="section-sub" style={{margin:'12px auto 0'}}>
-                Te avisamos el día que lancemos. Sin spam, prometido.
+      {/* ============ ACCESO ============ */}
+      <section id="acceso" className="relative mx-auto max-w-4xl px-4 py-24 sm:px-6 lg:px-8 lg:py-32">
+        <div className="absolute inset-x-0 top-1/3 -z-10 mx-auto h-96 max-w-2xl rounded-full bg-blue-600/[0.15] blur-[120px]" />
+
+        <div className="text-center">
+          <p className="text-xs font-medium uppercase tracking-[0.28em] text-blue-400">Acceso anticipado</p>
+          <h2 className="mt-5 text-3xl font-semibold tracking-[-0.035em] sm:text-5xl lg:text-6xl">
+            Sé de los primeros
+            <br />
+            <span className="bg-gradient-to-r from-blue-400 to-sky-300 bg-clip-text text-transparent">
+              en operar con Centra.
+            </span>
+          </h2>
+          <p className="mx-auto mt-6 max-w-lg text-base leading-relaxed text-[color:var(--c-text-muted)]">
+            Cupos limitados para el lanzamiento. Déjanos tus datos y te avisamos primero.
+          </p>
+        </div>
+
+        <form
+          action="https://formsubmit.co/contacto@centratunegocio.com"
+          method="POST"
+          className="mx-auto mt-12 max-w-2xl"
+        >
+          <input type="hidden" name="_subject" value="Nuevo interesado en Centra" />
+          <input type="hidden" name="_captcha" value="false" />
+
+          <div className="rounded-[1.5rem] border border-[color:var(--c-border)] bg-[color:var(--c-card-grad)] p-2 backdrop-blur-xl shadow-[0_30px_80px_-20px_rgba(0,0,0,0.3)]">
+            <div className="rounded-[1.2rem] border border-[color:var(--c-border-soft)] bg-[color:var(--c-card-inner)] p-5 sm:p-8">
+              <div className="grid gap-4 sm:grid-cols-2">
+                {[
+                  { name: "nombre", placeholder: "Tu nombre", required: true },
+                  { name: "email", placeholder: "Tu correo", type: "email", required: true },
+                  { name: "negocio", placeholder: "Nombre de tu negocio" },
+                  { name: "whatsapp", placeholder: "WhatsApp" },
+                ].map((f) => (
+                  <input
+                    key={f.name}
+                    name={f.name}
+                    type={f.type || "text"}
+                    required={f.required}
+                    placeholder={f.placeholder}
+                    className="rounded-xl border border-[color:var(--c-border)] bg-[color:var(--c-tile)] px-4 py-3.5 text-sm text-[color:var(--c-text)] outline-none transition placeholder:text-[color:var(--c-text-soft)] focus:border-blue-400/40 focus:shadow-[0_0_0_3px_rgba(37,99,235,0.1)]"
+                  />
+                ))}
+
+                <textarea
+                  name="mensaje"
+                  placeholder="¿Qué te gustaría controlar mejor? (opcional)"
+                  className="min-h-28 resize-none rounded-xl border border-[color:var(--c-border)] bg-[color:var(--c-tile)] px-4 py-3.5 text-sm text-[color:var(--c-text)] outline-none transition placeholder:text-[color:var(--c-text-soft)] focus:border-blue-400/40 focus:shadow-[0_0_0_3px_rgba(37,99,235,0.1)] sm:col-span-2"
+                />
+
+                <button
+                  type="submit"
+                  className="group inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3.5 text-sm font-semibold text-white shadow-[0_0_0_1px_rgba(96,165,250,0.3),0_8px_32px_-8px_rgba(37,99,235,0.7)] transition hover:bg-blue-500 sm:col-span-2"
+                >
+                  Reservar mi acceso
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="transition group-hover:translate-x-0.5">
+                    <path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
+
+              <p className="mt-6 text-center text-[11px] text-[color:var(--c-text-soft)]">
+                También puedes escribir a{" "}
+                <a href="mailto:contacto@centratunegocio.com" className="text-[color:var(--c-text-muted)] hover:text-[color:var(--c-text)]">
+                  contacto@centratunegocio.com
+                </a>
               </p>
             </div>
-            <div className="form-card">
-              {enviado ? (
-                <div className="success-box">
-                  <img src="/CENTRA.png" alt="Centra" className="success-logo" />
-                  <div className="success-title">¡Ya estás en la lista!</div>
-                  <div className="success-sub">
-                    Gracias {form.nombre}.<br />
-                    Te contactaremos cuando Centra esté listo.<br />
-                    Serás de los primeros en probarlo.
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {error && <div className="form-err">{error}</div>}
-                  <input className="form-input" placeholder="Tu nombre" value={form.nombre} onChange={e => setForm(f=>({...f,nombre:e.target.value}))} />
-                  <input className="form-input" type="email" placeholder="Tu correo electrónico" value={form.email} onChange={e => setForm(f=>({...f,email:e.target.value}))} />
-                  <input className="form-input" placeholder="Tu WhatsApp (con lada, ej: 5512345678)" value={form.whatsapp} onChange={e => setForm(f=>({...f,whatsapp:e.target.value}))} />
-                  <button className="form-btn" onClick={handleSubmit} disabled={loading}>
-                    {loading ? 'Guardando...' : 'Quiero ordenar mi negocio →'}
-                  </button>
-                </>
-              )}
-            </div>
           </div>
-        </div>
+        </form>
       </section>
 
-      {/* FOOTER */}
-      <footer>
-        <div className="footer-logo">
-          <img src="/CENTRA.png" alt="Centra" />
-          <span>CENTRA</span>
+      {/* ============ FOOTER ============ */}
+      <footer className="border-t border-[color:var(--c-border)]">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-4 py-10 text-xs text-[color:var(--c-text-soft)] sm:flex-row sm:px-6 lg:px-8">
+          <Logo theme={theme} />
+          <p className="text-center">© {new Date().getFullYear()} Centra · Control total para micronegocios</p>
+          <div className="flex items-center gap-6">
+            <a href="#" className="hover:text-[color:var(--c-text)]">Privacidad</a>
+            <a href="#" className="hover:text-[color:var(--c-text)]">Términos</a>
+          </div>
         </div>
-        <div className="footer-txt">
-          © 2026 Centra · <a href="mailto:crt.centra@gmail.com">centra@centratunegocio.com</a>
-        </div>
-        <div className="footer-txt">centratunegocio.com</div>
       </footer>
-    </>
-  )
+    </main>
+  );
 }
